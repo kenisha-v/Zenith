@@ -38,6 +38,7 @@ def select_video():
         print("No file selected")
 
 def start_process():
+    print("Start Process called")
     prompt(video_var.get(), exercise_var.get())
 
 def calculate_distance(a, b):
@@ -99,6 +100,7 @@ def process_frame_for_squats(landmarks):
     return(feet_aligned, torso_aligned, knee_aligned)
 
 def process_frame_for_bench_press(landmarks):
+    print("Bench Press called")
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     left_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value]
     left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
@@ -140,8 +142,8 @@ def process_frame_for_bench_press(landmarks):
         else:
             bar_aligned = False
     else:
-        bar_aligned = False
-        
+        bar_aligned = True
+    print("Bench Press completed")
     return(wrist_aligned, elbow_aligned, bar_aligned)
 
 def process_frame_for_deadlift(landmarks, initial_hip_position):
@@ -202,7 +204,8 @@ def process_frame_for_deadlift(landmarks, initial_hip_position):
 
 
 def get_ai_feedback_cohere(prompts):
-    if prompts == " ":
+    print("AI Called: ", prompts)
+    if prompts == "x":
          response = co.generate(model='command-xlarge-nightly', 
                                 prompt="The user performed the exercise with optimal form. Provide words of encouragement",
                                 max_tokens=300)
@@ -211,10 +214,11 @@ def get_ai_feedback_cohere(prompts):
                                prompt=f"The user is performing an exercise. Feedback: {prompts}. Give detailed advice on how to improve it. Dont give more than 3 points and be as direct and straight to the point as possible.",
                                max_tokens=300
         )
+    print(response.generations[0].text.strip)
     return response.generations[0].text.strip()
 
 def exercise_choose(exercise, initial_hip_position, landmarks):
-
+    print("Exercise Choose Called")
     if exercise.lower() == "squats":
         prompts = "While performing squats, "
         output = process_frame_for_squats(landmarks) #func to squats
@@ -225,7 +229,7 @@ def exercise_choose(exercise, initial_hip_position, landmarks):
         if output[2] != True:
             prompts += "the angle that my hips, knee and ankle make is not correct "
         if output[0] and output[1] and output[2]:
-            prompts = " "
+            prompts = "x"
 
     if exercise.lower() == "bench press":
         prompts = "While performing a bench press, "
@@ -237,7 +241,7 @@ def exercise_choose(exercise, initial_hip_position, landmarks):
         if output[2] != True:
             prompts += "the  bar isn't positioned near the sternum "
         if output[0] and output[1] and output[2]:
-            prompts = " "
+            prompts = "x"
 
     if exercise.lower() == "deadlift":
         prompts = "While performing a deadlift, "
@@ -251,12 +255,13 @@ def exercise_choose(exercise, initial_hip_position, landmarks):
         if output[3] != True:
             prompts += "the angle that my hips, knee and ankle make is not correct "
         if output[0] and output[1] and output[2] and output[3]:
-            prompts = " "
+            prompts = "x"
     
     feedback = get_ai_feedback_cohere(prompts)
     return feedback
 
 def prompt(input_video_path, exercise):
+    print("Prompt Called")
     cap = cv2.VideoCapture(input_video_path)
     
     initial_hip_position = None
@@ -280,7 +285,7 @@ def prompt(input_video_path, exercise):
                     (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x + landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x) / 2,
                     (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y + landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y) / 2
                 )
-            
+            print("About to call exercise choose")
             feedback = exercise_choose(exercise, initial_hip_position, landmarks)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -289,6 +294,7 @@ def prompt(input_video_path, exercise):
     # Release video objects and close windows
     cap.release()
     cv2.destroyAllWindows()
+    print("Open paragraph window")
     open_paragraph_window(feedback)
 
 
