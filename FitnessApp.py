@@ -139,6 +139,8 @@ def process_frame_for_bench_press(landmarks):
             bar_aligned = True
         else:
             bar_aligned = False
+    else:
+        bar_aligned = False
         
     return(wrist_aligned, elbow_aligned, bar_aligned)
 
