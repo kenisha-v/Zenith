@@ -200,11 +200,15 @@ def process_frame_for_deadlift(landmarks, initial_hip_position):
 
 
 def get_ai_feedback_cohere(prompts):
-    response = co.generate(
-        model='command-xlarge-nightly', 
-        prompt=f"The user is performing an exercise. Feedback: {prompts}. Give detailed advice on how to improve it. Dont give more than 3 points and be as direct and straight to the point as possible.",
-        max_tokens=300
-    )
+    if prompts == " ":
+         response = co.generate(model='command-xlarge-nightly', 
+                                prompt="The user performed the exercise with optimal form. Provide words of encouragement",
+                                max_tokens=300)
+    else:
+        response = co.generate(model='command-xlarge-nightly', 
+                               prompt=f"The user is performing an exercise. Feedback: {prompts}. Give detailed advice on how to improve it. Dont give more than 3 points and be as direct and straight to the point as possible.",
+                               max_tokens=300
+        )
     return response.generations[0].text.strip()
 
 def exercise_choose(exercise, initial_hip_position, landmarks):
@@ -218,6 +222,8 @@ def exercise_choose(exercise, initial_hip_position, landmarks):
             prompts += "the angle that my shoulder hips and knees make is not correct, "
         if output[2] != True:
             prompts += "the angle that my hips, knee and ankle make is not correct "
+        if output[0] and output[1] and output[2]:
+            prompts = " "
 
     if exercise.lower() == "bench press":
         prompts = "While performing a bench press, "
@@ -228,6 +234,8 @@ def exercise_choose(exercise, initial_hip_position, landmarks):
             prompts += "the elbows flare out, "
         if output[2] != True:
             prompts += "the  bar isn't positioned near the sternum "
+        if output[0] and output[1] and output[2]:
+            prompts = " "
 
     if exercise.lower() == "deadlift":
         prompts = "While performing a deadlift, "
@@ -240,6 +248,8 @@ def exercise_choose(exercise, initial_hip_position, landmarks):
             prompts += "the angle that my shoulder hips and knees make is not correct, "
         if output[3] != True:
             prompts += "the angle that my hips, knee and ankle make is not correct "
+        if output[0] and output[1] and output[2] and output[3]:
+            prompts = " "
     
     feedback = get_ai_feedback_cohere(prompts)
     return feedback
