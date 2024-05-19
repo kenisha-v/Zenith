@@ -39,7 +39,8 @@ def select_video():
 
 def start_process():
     print("Start Process called")
-    prompt(video_var.get(), exercise_var.get())
+    feedback = process_video(video_var.get(), exercise_var.get())
+    open_paragraph_window(feedback)
 
 def calculate_distance(a, b):
     return np.sqrt((a.x - b.x)**2 + (a.y - b.y)**2)
@@ -57,7 +58,7 @@ def calculate_angle(a, b, c):
 
     return angle
 
-def process_frame_for_squats(landmarks):
+def process_frame_for_squats(landmarks, errors):
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
     left_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
@@ -80,26 +81,18 @@ def process_frame_for_squats(landmarks):
     optimal_torso_angle_range = (50, 180)
     optimal_knee_angle_range = (60, 180)
     
-    if(abs(right_heel.y - right_toe.y) < 0.05 and abs(left_heel.y - left_toe.y) < 0.05):
-        feet_aligned = True
-    else:  
-        feet_aligned = False
+    if(abs(right_heel.y - right_toe.y) >= 0.05 or abs(left_heel.y - left_toe.y) >= 0.05):
+        errors['feet_aligned'] = False
     
-    if(optimal_torso_angle_range[0] <= right_torso_angle <= optimal_torso_angle_range[1] and
-        optimal_torso_angle_range[0] <= left_torso_angle <= optimal_torso_angle_range[1]):
-        torso_aligned = True
-    else:    
-        torso_aligned = False
+    if(not (optimal_torso_angle_range[0] <= right_torso_angle <= optimal_torso_angle_range[1]) or 
+       not (optimal_torso_angle_range[0] <= left_torso_angle <= optimal_torso_angle_range[1])):
+        errors['torso_aligned'] = False
 
-    if(optimal_knee_angle_range[0] <= right_knee_angle <= optimal_knee_angle_range[1] and
-        optimal_knee_angle_range[0] <= left_knee_angle <= optimal_knee_angle_range[1]):
-        knee_aligned = True
-    else:    
-        knee_aligned = False
+    if(not (optimal_knee_angle_range[0] <= right_knee_angle <= optimal_knee_angle_range[1]) or 
+       not (optimal_knee_angle_range[0] <= left_knee_angle <= optimal_knee_angle_range[1])):
+        errors['knee_aligned'] = False
 
-    return(feet_aligned, torso_aligned, knee_aligned)
-
-def process_frame_for_bench_press(landmarks):
+def process_frame_for_bench_press(landmarks, errors):
     print("Bench Press called")
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     left_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value]
@@ -115,20 +108,16 @@ def process_frame_for_bench_press(landmarks):
     left_wrist_in_line = abs(left_wrist.x - left_elbow.x) < 0.05
     right_wrist_in_line = abs(right_wrist.x - right_elbow.x) < 0.05
     
-    if left_wrist_in_line and right_wrist_in_line:
-        wrist_aligned = True
-    else:
-        wrist_aligned = False
+    if not left_wrist_in_line or not right_wrist_in_line:
+        errors['wrist_aligned'] = False
     
     left_elbow_shoulder_distance = calculate_distance(left_elbow, left_shoulder)
     right_elbow_shoulder_distance = calculate_distance(right_elbow, right_shoulder)
     min_elbow_shoulder_distance = 0.035  # Adjust based on empirical observation
     
-    if (left_elbow_shoulder_distance > min_elbow_shoulder_distance and
-        right_elbow_shoulder_distance > min_elbow_shoulder_distance):
-        elbow_aligned = True
-    else:
-        elbow_aligned = False
+    if (left_elbow_shoulder_distance <= min_elbow_shoulder_distance or 
+        right_elbow_shoulder_distance <= min_elbow_shoulder_distance):
+        errors['elbow_aligned'] = False
     
     right_rep_range = calculate_angle(right_elbow, right_shoulder, right_hip)
     left_rep_range = calculate_angle(left_elbow, left_shoulder, left_hip)
@@ -137,23 +126,18 @@ def process_frame_for_bench_press(landmarks):
         right_chest_level = (right_shoulder.x + right_hip.x) / 2.5
         left_chest_level = (left_shoulder.x + left_hip.x) / 2.5
         
-        if (abs(right_wrist.x - right_chest_level) < 0.07 and abs(left_wrist.x - left_chest_level) < 0.07):
-            bar_aligned = True
-        else:
-            bar_aligned = False
-    else:
-        bar_aligned = True
+        if not (abs(right_wrist.x - right_chest_level) < 0.07 and abs(left_wrist.x - left_chest_level) < 0.07):
+            errors['bar_aligned'] = False
     print("Bench Press completed")
-    return(wrist_aligned, elbow_aligned, bar_aligned)
 
-def process_frame_for_deadlift(landmarks, initial_hip_position):
+def process_frame_for_deadlift(landmarks, initial_hip_position, errors):
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     left_hip = landmarks[mp_pose.PoseLandmark.LEFT_HIP.value]
     left_knee = landmarks[mp_pose.PoseLandmark.LEFT_KNEE.value]
     left_ankle = landmarks[mp_pose.PoseLandmark.LEFT_ANKLE.value]
     left_toe = landmarks[mp_pose.PoseLandmark.LEFT_FOOT_INDEX.value]
     
-    head = landmarks[mp_pose.PoseLandmark.LEFT_EAR.value]
+    head = landmarks[mp_pose.PoseLandmark.NOSE.value]
 
     right_shoulder = landmarks[mp_pose.PoseLandmark.RIGHT_SHOULDER.value]
     right_hip = landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value]
@@ -169,39 +153,25 @@ def process_frame_for_deadlift(landmarks, initial_hip_position):
     left_knee_angle = calculate_angle(left_hip, left_knee, left_ankle)
     right_knee_angle = calculate_angle(right_hip, right_knee, right_ankle)
     
-    
     optimal_hip_angle_range = (45, 180)
     optimal_knee_angle_range = (80, 180)
     
-    if(abs(right_knee.x > right_toe.x) > 0.01 and abs(left_knee.x > left_toe.x) > 0.01):
-        knee_toe_aligned = False
-    else:
-        knee_toe_aligned = True
+    if(abs(right_knee.x > right_toe.x) > 0.01 or abs(left_knee.x > left_toe.x) > 0.01):
+        errors['knee_toe_aligned'] = False
     
-    if(left_spine_angle > 15 and right_spine_angle > 15):
-        spine_aligned = False
-    else:
-        spine_aligned = True
+    if(left_spine_angle > 15 or right_spine_angle > 15):
+        errors['spine_aligned'] = False
 
-    if(abs(left_hip.y - initial_hip_position.y) > 0.1 and abs(right_hip.y - initial_hip_position.y) > 0.1):
-        hip_aligned = False
-    else:
-        hip_aligned = True
+    if(abs(left_hip.y - initial_hip_position.y) > 0.1 or abs(right_hip.y - initial_hip_position.y) > 0.1):
+        errors['hip_aligned'] = False
 
-    if (optimal_hip_angle_range[0] <= left_hip_angle <= optimal_hip_angle_range[1] and
-        optimal_hip_angle_range[0] <= right_hip_angle <= optimal_hip_angle_range[1]):
-        hip_aligned = True
-    else:   
-        hip_aligned = False
+    if (optimal_hip_angle_range[0] > left_hip_angle or left_hip_angle > optimal_hip_angle_range[1] or 
+        optimal_hip_angle_range[0] > right_hip_angle or right_hip_angle > optimal_hip_angle_range[1]):
+        errors['hip_aligned'] = False
 
-    if(optimal_knee_angle_range[0] <= left_knee_angle <= optimal_knee_angle_range[1] and
-        optimal_knee_angle_range[0] <= right_knee_angle <= optimal_knee_angle_range[1]):
-        knee_aligned = True
-    else:
-        knee_aligned = False
-
-    return(knee_toe_aligned, spine_aligned, hip_aligned, knee_aligned)
-
+    if (optimal_knee_angle_range[0] > left_knee_angle or left_knee_angle > optimal_knee_angle_range[1] or 
+        optimal_knee_angle_range[0] > right_knee_angle or right_knee_angle > optimal_knee_angle_range[1]):
+        errors['knee_aligned'] = False
 
 def get_ai_feedback_cohere(prompts):
     print("AI Called: ", prompts)
@@ -217,54 +187,74 @@ def get_ai_feedback_cohere(prompts):
     print(response.generations[0].text.strip)
     return response.generations[0].text.strip()
 
-def exercise_choose(exercise, initial_hip_position, landmarks):
+def exercise_choose(exercise, initial_hip_position, landmarks, errors):
     print("Exercise Choose Called")
     if exercise.lower() == "squats":
+        process_frame_for_squats(landmarks, errors)
+
+    if exercise.lower() == "bench press":
+        process_frame_for_bench_press(landmarks, errors)
+
+    if exercise.lower() == "deadlift":
+        process_frame_for_deadlift(landmarks, initial_hip_position, errors)
+
+def generate_feedback(exercise, errors):
+    if exercise.lower() == "squats":
         prompts = "While performing squats, "
-        output = process_frame_for_squats(landmarks) #func to squats
-        if output[0]!=True:
+        if errors['feet_aligned']:
             prompts += "heels are coming off ground, "
-        if output[1] != True:
+        if errors['torso_aligned']:
             prompts += "the angle that my shoulder hips and knees make is not correct, "
-        if output[2] != True:
+        if errors['knee_aligned']:
             prompts += "the angle that my hips, knee and ankle make is not correct "
-        if output[0] and output[1] and output[2]:
+        if not errors['feet_aligned'] and not errors['torso_aligned'] and not errors['knee_aligned']:
             prompts = "x"
 
     if exercise.lower() == "bench press":
         prompts = "While performing a bench press, "
-        output = process_frame_for_bench_press(landmarks) #func to bench press
-        if output[0]!=True:
+        if errors['wrist_aligned']:
             prompts += "wrist and elbow dont create a 90 degree angle with eachother, "
-        if output[1] != True:
+        if errors['elbow_aligned']:
             prompts += "the elbows flare out, "
-        if output[2] != True:
-            prompts += "the  bar isn't positioned near the sternum "
-        if output[0] and output[1] and output[2]:
+        if errors['bar_aligned']:
+            prompts += "the bar isn't positioned near the sternum "
+        if not errors['wrist_aligned'] and not errors['elbow_aligned'] and not errors['bar_aligned']:
             prompts = "x"
 
     if exercise.lower() == "deadlift":
         prompts = "While performing a deadlift, "
-        output = process_frame_for_deadlift(landmarks, initial_hip_position) #func to bench press
-        if output[0]!=True:
+        if errors['knee_toe_aligned']:
             prompts += "knees goes past the toes, "
-        if output[1] != True:
+        if errors['spine_aligned']:
             prompts += "spine is arched, "
-        if output[2] != True:
+        if errors['hip_aligned']:
             prompts += "the angle that my shoulder hips and knees make is not correct, "
-        if output[3] != True:
+        if errors['knee_aligned']:
             prompts += "the angle that my hips, knee and ankle make is not correct "
-        if output[0] and output[1] and output[2] and output[3]:
+        if not errors['knee_toe_aligned'] and not errors['spine_aligned'] and not errors['hip_aligned'] and not errors['knee_aligned']:
             prompts = "x"
     
     feedback = get_ai_feedback_cohere(prompts)
     return feedback
 
-def prompt(input_video_path, exercise):
-    print("Prompt Called")
+def process_video(input_video_path, exercise):
+    print("Process Video Called")
     cap = cv2.VideoCapture(input_video_path)
     
     initial_hip_position = None
+
+    # Initialize errors dictionary
+    errors = {
+        'feet_aligned': True,
+        'torso_aligned': True,
+        'knee_aligned': True,
+        'wrist_aligned': True,
+        'elbow_aligned': True,
+        'bar_aligned': True,
+        'knee_toe_aligned': True,
+        'spine_aligned': True,
+        'hip_aligned': True
+    }
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -286,7 +276,7 @@ def prompt(input_video_path, exercise):
                     (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y + landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y) / 2
                 )
             print("About to call exercise choose")
-            feedback = exercise_choose(exercise, initial_hip_position, landmarks)
+            exercise_choose(exercise, initial_hip_position, landmarks, errors)
         
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
@@ -294,8 +284,10 @@ def prompt(input_video_path, exercise):
     # Release video objects and close windows
     cap.release()
     cv2.destroyAllWindows()
-    print("Open paragraph window")
-    open_paragraph_window(feedback)
+
+    print("Generating feedback")
+    feedback = generate_feedback(exercise, errors)
+    return feedback
 
 
 if __name__ == "__main__":
