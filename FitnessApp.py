@@ -38,7 +38,6 @@ def select_video():
         print("No file selected")
 
 def start_process():
-    print("Start Process called")
     feedback = process_video(video_var.get(), exercise_var.get())
     open_paragraph_window(feedback)
 
@@ -93,7 +92,6 @@ def process_frame_for_squats(landmarks, errors):
         errors['knee_aligned'] = False
 
 def process_frame_for_bench_press(landmarks, errors):
-    print("Bench Press called")
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     left_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value]
     left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
@@ -128,7 +126,6 @@ def process_frame_for_bench_press(landmarks, errors):
         
         if not (abs(right_wrist.x - right_chest_level) < 0.07 and abs(left_wrist.x - left_chest_level) < 0.07):
             errors['bar_aligned'] = False
-    print("Bench Press completed")
 
 def process_frame_for_deadlift(landmarks, initial_hip_position, errors):
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
@@ -174,7 +171,7 @@ def process_frame_for_deadlift(landmarks, initial_hip_position, errors):
         errors['knee_aligned'] = False
 
 def get_ai_feedback_cohere(prompts):
-    print("AI Called: ", prompts)
+    # print("AI Called: ", prompts)
     if prompts == "x":
          response = co.generate(model='command-xlarge-nightly', 
                                 prompt="The user performed the exercise with optimal form. Provide words of encouragement",
@@ -184,11 +181,10 @@ def get_ai_feedback_cohere(prompts):
                                prompt=f"The user is performing an exercise. Feedback: {prompts}. Give detailed advice on how to improve it. Dont give more than 3 points and be as direct and straight to the point as possible.",
                                max_tokens=300
         )
-    print(response.generations[0].text.strip)
+    # print(response.generations[0].text.strip)
     return response.generations[0].text.strip()
 
 def exercise_choose(exercise, initial_hip_position, landmarks, errors):
-    print("Exercise Choose Called")
     if exercise.lower() == "squats":
         process_frame_for_squats(landmarks, errors)
 
@@ -238,7 +234,6 @@ def generate_feedback(exercise, errors):
     return feedback
 
 def process_video(input_video_path, exercise):
-    print("Process Video Called")
     cap = cv2.VideoCapture(input_video_path)
     
     initial_hip_position = None
@@ -255,6 +250,12 @@ def process_video(input_video_path, exercise):
         'spine_aligned': True,
         'hip_aligned': True
     }
+
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+    output_video_path = "output_video.mp4"
+    out = cv2.VideoWriter(output_video_path, fourcc, cap.get(cv2.CAP_PROP_FPS),
+                          (int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)), 
+                           int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))))
 
     while cap.isOpened():
         ret, frame = cap.read()
@@ -275,17 +276,19 @@ def process_video(input_video_path, exercise):
                     (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].x + landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].x) / 2,
                     (landmarks[mp_pose.PoseLandmark.LEFT_HIP.value].y + landmarks[mp_pose.PoseLandmark.RIGHT_HIP.value].y) / 2
                 )
-            print("About to call exercise choose")
+
             exercise_choose(exercise, initial_hip_position, landmarks, errors)
         
+        out.write(frame)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     
     # Release video objects and close windows
     cap.release()
+    out.release()
     cv2.destroyAllWindows()
 
-    print("Generating feedback")
+    # print("Generating feedback")
     feedback = generate_feedback(exercise, errors)
     return feedback
 
