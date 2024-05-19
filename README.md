@@ -1,4 +1,5 @@
 # Zenith
+Zenith: Elevate Your Workout to Peak Performance.
 
 ## Inspiration
 Zenith was inspired by our own gym adventures. We saw beginners struggling with form, looking more like they were dancing than working out. We wanted to help them avoid turning their fitness journey into a blooper reel. So, we created Zenith to democratize access to expert fitness coaching and help everyone reach peak performance.
