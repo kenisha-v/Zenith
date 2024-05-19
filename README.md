@@ -1,1 +1,1 @@
-# SquatSpotter
+# Zenith
