@@ -5,6 +5,7 @@ import mediapipe as mp
 import numpy as np
 from tkinter import filedialog
 from tkinter import ttk
+from tkinter.font import Font
 from collections import namedtuple
 
 co = cohere.Client('wwAmN0AxwrjsUdV7wUqBQUUVyCIi0n9TXLmAKSxL')
@@ -21,19 +22,27 @@ Point = namedtuple('Point', ['x', 'y'])
 def open_paragraph_window(feedback):
     new_window = tk.Toplevel(root)
     new_window.title("Processing Result")
-    new_window.geometry("300x100")
+    new_window.geometry("500x350")
     # Make the window not resizable
     new_window.resizable(False, False)
     # Aesthetic enhancements using a label
-    result_label = tk.Label(new_window, text=feedback,
-                            font=("Helvetica", 12), padx=10, pady=10)
+    result_label = tk.Label(new_window, padx=10, pady=10, wraplength=450)
     result_label.pack(expand=True)
+    display_typing_effect(result_label, feedback)
+
+def display_typing_effect(label, text, index=0):
+    # This function updates the label's text one character at a time
+    if index < len(text):
+        label.config(text=text[:index+1])
+        label.after(100, lambda: display_typing_effect(label, text, index + 1))  # Update every 100ms
+
 
 def select_video():
     filepath = filedialog.askopenfilename(filetypes=[("Video files", "*.mp4 *.avi *.mov")])
     if filepath:
         video_var.set(filepath)
-        print("Video selected:", filepath)
+        name_var.set(filepath.split('/')[-1])
+        print("Video selected:", name_var.get())
     else:
         print("No file selected")
 
@@ -92,6 +101,8 @@ def process_frame_for_squats(landmarks, errors):
         errors['knee_aligned'] = False
 
 def process_frame_for_bench_press(landmarks, errors):
+    right_chest_level = 0
+    left_chest_level = 0
     left_shoulder = landmarks[mp_pose.PoseLandmark.LEFT_SHOULDER.value]
     left_elbow = landmarks[mp_pose.PoseLandmark.LEFT_ELBOW.value]
     left_wrist = landmarks[mp_pose.PoseLandmark.LEFT_WRIST.value]
@@ -171,7 +182,7 @@ def process_frame_for_deadlift(landmarks, initial_hip_position, errors):
         errors['knee_aligned'] = False
 
 def get_ai_feedback_cohere(prompts):
-    # print("AI Called: ", prompts)
+    print("AI Called: ", prompts)
     if prompts == "x":
          response = co.generate(model='command-xlarge-nightly', 
                                 prompt="The user performed the exercise with optimal form. Provide words of encouragement",
@@ -197,37 +208,37 @@ def exercise_choose(exercise, initial_hip_position, landmarks, errors):
 def generate_feedback(exercise, errors):
     if exercise.lower() == "squats":
         prompts = "While performing squats, "
-        if errors['feet_aligned']:
+        if not errors['feet_aligned']:
             prompts += "heels are coming off ground, "
-        if errors['torso_aligned']:
+        if not errors['torso_aligned']:
             prompts += "the angle that my shoulder hips and knees make is not correct, "
-        if errors['knee_aligned']:
+        if not errors['knee_aligned']:
             prompts += "the angle that my hips, knee and ankle make is not correct "
-        if not errors['feet_aligned'] and not errors['torso_aligned'] and not errors['knee_aligned']:
+        if errors['feet_aligned'] and errors['torso_aligned'] and errors['knee_aligned']:
             prompts = "x"
 
     if exercise.lower() == "bench press":
         prompts = "While performing a bench press, "
-        if errors['wrist_aligned']:
+        if not errors['wrist_aligned']:
             prompts += "wrist and elbow dont create a 90 degree angle with eachother, "
-        if errors['elbow_aligned']:
+        if not errors['elbow_aligned']:
             prompts += "the elbows flare out, "
-        if errors['bar_aligned']:
+        if not errors['bar_aligned']:
             prompts += "the bar isn't positioned near the sternum "
-        if not errors['wrist_aligned'] and not errors['elbow_aligned'] and not errors['bar_aligned']:
+        if errors['wrist_aligned'] and errors['elbow_aligned'] and errors['bar_aligned']:
             prompts = "x"
 
     if exercise.lower() == "deadlift":
         prompts = "While performing a deadlift, "
-        if errors['knee_toe_aligned']:
+        if not errors['knee_toe_aligned']:
             prompts += "knees goes past the toes, "
-        if errors['spine_aligned']:
+        if not errors['spine_aligned']:
             prompts += "spine is arched, "
-        if errors['hip_aligned']:
+        if not errors['hip_aligned']:
             prompts += "the angle that my shoulder hips and knees make is not correct, "
-        if errors['knee_aligned']:
+        if not errors['knee_aligned']:
             prompts += "the angle that my hips, knee and ankle make is not correct "
-        if not errors['knee_toe_aligned'] and not errors['spine_aligned'] and not errors['hip_aligned'] and not errors['knee_aligned']:
+        if errors['knee_toe_aligned'] and errors['spine_aligned'] and errors['hip_aligned'] and errors['knee_aligned']:
             prompts = "x"
     
     feedback = get_ai_feedback_cohere(prompts)
@@ -297,28 +308,36 @@ if __name__ == "__main__":
 
     root = tk.Tk()
     root.title("Exercise Video Uploader")
-    root.geometry("500x250")  # Width x Height
+    root.geometry("500x350")  # Increased Width x Height
+
+    heading_font = Font(family="Times New Roman", size=48, weight="bold")
+    text_font = Font(family="Times New Roman", size=14)
 
     frame = tk.Frame(root, padx=20, pady=20)
     frame.pack(padx=10, pady=10)
 
+    heading_label = tk.Label(frame, text="Zenith", font=heading_font, fg="sky blue")
+    heading_label.grid(column=0, row=0, columnspan=2, sticky='N', pady=(0, 20))
+
     exercise_var = tk.StringVar()
-    exercise_dropdown = ttk.Combobox(frame, textvariable=exercise_var, state="readonly")
+    exercise_dropdown = ttk.Combobox(frame, textvariable=exercise_var, state="readonly", font=text_font)
     exercise_dropdown['values'] = ('Deadlift', 'Bench Press', 'Squat', 'Other')
     exercise_dropdown.current(0)
-    exercise_dropdown.grid(column=1, row=0, padx=10, pady=10)
+    exercise_dropdown.grid(column=1, row=1, padx=10, pady=10)
 
-    exercise_label = tk.Label(frame, text="Select Exercise:")
-    exercise_label.grid(column=0, row=0, sticky='W')
+    exercise_label = tk.Label(frame, text="Select Exercise:", font=text_font)
+    exercise_label.grid(column=0, row=1, sticky='W')
 
     video_var = tk.StringVar()
-    video_label = tk.Label(frame, textvariable=video_var)
-    video_label.grid(column=1, row=2, padx=10, pady=10)
+    name_var = tk.StringVar()
+    video_label = tk.Label(frame, textvariable=name_var, font=text_font)
+    video_label.grid(column=1, row=2, padx=10, pady=30)
 
-    select_button = tk.Button(frame, text="Select Video", command=select_video)
+    select_button = tk.Button(frame, text="Select Video", command=select_video, font=text_font)
     select_button.grid(column=0, row=2, padx=10, pady=10)
 
-    start_button = tk.Button(frame, text="Start", command=start_process)
+    start_button = tk.Button(frame, text="Start", command=start_process, font=text_font)
     start_button.grid(column=1, row=3, padx=10, pady=20)
 
+    # Start the GUI
     root.mainloop()
