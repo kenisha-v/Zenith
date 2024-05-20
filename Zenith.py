@@ -8,7 +8,7 @@ from tkinter import ttk
 from tkinter.font import Font
 from collections import namedtuple
 
-co = cohere.Client('wwAmN0AxwrjsUdV7wUqBQUUVyCIi0n9TXLmAKSxL')
+co = cohere.Client('your-cohere-token')
 
 # Initialize MediaPipe Pose
 mp_pose = mp.solutions.pose
