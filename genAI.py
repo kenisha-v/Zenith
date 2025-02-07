@@ -1,6 +1,6 @@
 import cohere
 
-co = cohere.Client('wwAmN0AxwrjsUdV7wUqBQUUVyCIi0n9TXLmAKSxL')
+co = cohere.Client('YOUR-CLIENT-ID')
 
 # gives feedback to fix form using Cohere 
 def get_ai_feedback_cohere(prompts):
